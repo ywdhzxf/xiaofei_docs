@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/blog/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/blog/css/main.css?v=7.1.1">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/blog/images/apple-touch-icon-next.png?v=7.1.1">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/blog/images/favicon-32x32-next.png?v=7.1.1">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/blog/images/favicon-16x16-next.png?v=7.1.1">
+
+
+  <link rel="mask-icon" href="/blog/images/logo.svg?v=7.1.1" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/blog/',
+    scheme: 'Gemini',
+    version: '7.1.1',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false,"dimmer":false},
+    back2top: true,
+    back2top_sidebar: false,
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="这大概是最详细的一篇关于Redis文章了，分享给热爱钻研技术的童鞋们~1转载    https://studygolang.com/topics/8514 一、Redis雪崩、穿透、并发等5大难题解决方案 缓存雪崩 数据未加载到缓存中，或者缓存同一时间大面积的失效，从而导致所有请求都去查数据库，导致数据库CPU和内存负载过高，甚至宕机。 比如一个雪崩的简单过程： 1、redis集群大面积故障； 2">
+<meta name="keywords" content="数据库">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因">
+<meta property="og:url" content="https://127.0.0.1/blog/2019/05/06/深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因/index.html">
+<meta property="og:site_name" content="郑小飞的个人博客">
+<meta property="og:description" content="这大概是最详细的一篇关于Redis文章了，分享给热爱钻研技术的童鞋们~1转载    https://studygolang.com/topics/8514 一、Redis雪崩、穿透、并发等5大难题解决方案 缓存雪崩 数据未加载到缓存中，或者缓存同一时间大面积的失效，从而导致所有请求都去查数据库，导致数据库CPU和内存负载过高，甚至宕机。 比如一个雪崩的简单过程： 1、redis集群大面积故障； 2">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/11633898-e7e21e1eda3329e5?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/11633898-94ebaeef8e412af8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/11633898-28aba45f6931d07f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/11633898-124783c8f3f39ead?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/11633898-2b328dfd60dc87d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/11633898-cd66afdf5dae5ca4?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/11633898-c67dc67645c1f394?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:updated_time" content="2019-05-08T08:21:10.408Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因">
+<meta name="twitter:description" content="这大概是最详细的一篇关于Redis文章了，分享给热爱钻研技术的童鞋们~1转载    https://studygolang.com/topics/8514 一、Redis雪崩、穿透、并发等5大难题解决方案 缓存雪崩 数据未加载到缓存中，或者缓存同一时间大面积的失效，从而导致所有请求都去查数据库，导致数据库CPU和内存负载过高，甚至宕机。 比如一个雪崩的简单过程： 1、redis集群大面积故障； 2">
+<meta name="twitter:image" content="http://upload-images.jianshu.io/upload_images/11633898-e7e21e1eda3329e5?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="https://127.0.0.1/blog/2019/05/06/深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因 | 郑小飞的个人博客</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/blog/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">郑小飞的个人博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/blog/home" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/blog/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-commonweal">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/blog/404/" rel="section"><i class="menu-item-icon fa fa-fw fa-heartbeat"></i> <br>公益 404</a>
+
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+
+  
+
+  <a href="https://github.com/ywdhzxf/myBlog" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewbox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a>
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://127.0.0.1/blog/blog/2019/05/06/深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="郑小飞">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/blog/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="郑小飞的个人博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">深度掌握Redis：5 大难题解决方案+单线程优劣势+高并发快原因
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-05-06 12:36:15" itemprop="dateCreated datePublished" datetime="2019-05-06T12:36:15+08:00">2019-05-06</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-05-08 16:21:10" itemprop="dateModified" datetime="2019-05-08T16:21:10+08:00">2019-05-08</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>这大概是最详细的一篇关于Redis文章了，分享给热爱钻研技术的童鞋们~<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">转载    https://studygolang.com/topics/8514</span><br></pre></td></tr></table></figure></p>
+<p>一、Redis雪崩、穿透、并发等5大难题解决方案</p>
+<p>缓存雪崩</p>
+<p>数据未加载到缓存中，或者缓存同一时间大面积的失效，从而导致所有请求都去查数据库，导致数据库CPU和内存负载过高，甚至宕机。</p>
+<p>比如一个雪崩的简单过程：</p>
+<p>1、redis集群大面积故障；</p>
+<p>2、缓存失效，但依然大量请求访问缓存服务redis；</p>
+<p>3、redis大量失效后，大量请求转向到mysql数据库；</p>
+<p>4、mysql的调用量暴增，很快就扛不住了，甚至直接宕机；</p>
+<p>5、由于大量的应用服务依赖mysql和redis的服务，这个时候很快会演变成各服务器集群的雪崩，最后网站彻底崩溃。<br><img src="http://upload-images.jianshu.io/upload_images/11633898-e7e21e1eda3329e5?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>如何预防缓存雪崩：<br><img src="https://upload-images.jianshu.io/upload_images/11633898-94ebaeef8e412af8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>1.缓存的高可用性</p>
+<p>缓存层设计成高可用，防止缓存大面积故障。即使个别节点、个别机器、甚至是机房宕掉，依然可以提供服务，例如 Redis Sentinel 和 Redis Cluster 都实现了高可用。</p>
+<p>2.缓存降级</p>
+<p>可以利用ehcache等本地缓存(暂时支持)，但主要还是对源服务访问进行限流、资源隔离（熔断）、降级等。 当访问量剧增、服务出现问题仍然需要保证服务还是可用的。系统可以根据一些关键数据进行自动降级，也可以配置开关实现人工降级，这里会涉及到运维的配合。</p>
+<p>降级的最终目的是保证核心服务可用，即使是有损的。比如推荐服务中，很多都是个性化的需求，假如个性化需求不能提供服务了，可以降级补充热点数据，不至于造成前端页面是个大空白。</p>
+<p>在进行降级之前要对系统进行梳理，比如：哪些业务是核心(必须保证)，哪些业务可以容许暂时不提供服务(利用静态页面替换)等，以及配合服务器核心指标，来后设置整体预案，比如：</p>
+<p>（1）一般：比如有些服务偶尔因为网络抖动或者服务正在上线而超时，可以自动降级； （2）警告：有些服务在一段时间内成功率有波动（如在95~100%之间），可以自动降级或人工降级，并发送告警； （3）错误：比如可用率低于90%，或者数据库连接池被打爆了，或者访问量突然猛增到系统能承受的最大阀值，此时可以根据情况自动降级或者人工降级； （4）严重错误：比如因为特殊原因数据错误了，此时需要紧急人工降级。</p>
+<p>3.Redis备份和快速预热</p>
+<p>Redis数据备份和恢复；<br>快速缓存预热。<br>4.提前演练</p>
+<p>最后，建议还是在项目上线前，演练缓存层宕掉后，应用以及后端的负载情况以及可能出现的问题，对高可用提前预演，提前发现问题。</p>
+<p>缓存穿透</p>
+<p>缓存穿透是指查询一个一不存在的数据。例如：从缓存redis没有命中，需要从mysql数据库查询，查不到数据则不写入缓存，这将导致这个不存在的数据每次请求都要到数据库去查询，造成缓存穿透。</p>
+<p>解决思路： 如果查询数据库也为空，直接设置一个默认值存放到缓存，这样第二次到缓冲中获取就有值了，而不会继续访问数据库。设置一个过期时间或者当有值的时候将缓存中的值替换掉即可。</p>
+<p>可以给key设置一些格式规则，然后查询之前先过滤掉不符合规则的Key。</p>
+<p>缓存并发</p>
+<p>这里的并发指的是多个redis的client同时set key引起的并发问题。其实redis自身就是单线程操作，多个client并发操作，按照先到先执行的原则，先到的先执行，其余的阻塞。当然，另外的解决方案是把redis.set操作放在队列中使其串行化，必须的一个一个执行。</p>
+<p>缓存预热</p>
+<p>缓存预热就是系统上线后，将相关的缓存数据直接加载到缓存系统。</p>
+<p>这样就可以避免在用户请求的时候，先查询数据库，然后再将数据缓存的问题！用户直接查询事先被预热的缓存数据！</p>
+<p>解决思路：</p>
+<p>直接写个缓存刷新页面，上线时手工操作下；<br>数据量不大，可以在项目启动的时候自动进行加载；<br>目的就是在系统上线前，将数据加载到缓存中。</p>
+<p>二、Redis为什么是单线程，高并发快的3大原因详解</p>
+<p>Redis的高并发和快速原因</p>
+<p>1.redis是基于内存的，内存的读写速度非常快； 2.redis是单线程的，省去了很多上下文切换线程的时间； 3.redis使用多路复用技术，可以处理并发的连接。非阻塞IO 内部实现采用epoll，采用了epoll+自己实现的简单的事件框架。epoll中的读、写、关闭、连接都转化成了事件，然后利用epoll的多路复用特性，绝不在io上浪费一点时间。</p>
+<p>下面重点介绍单线程设计和IO多路复用核心设计快的原因。<br><img src="https://upload-images.jianshu.io/upload_images/11633898-28aba45f6931d07f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>为什么Redis是单线程的？</p>
+<p>1.官方答案</p>
+<p>因为Redis是基于内存的操作，CPU不是Redis的瓶颈，Redis的瓶颈最有可能是机器内存的大小或者网络带宽。既然单线程容易实现，而且CPU不会成为瓶颈，那就顺理成章地采用单线程的方案了。</p>
+<p>2.性能指标</p>
+<p>关于redis的性能，官方网站也有，普通笔记本轻松处理每秒几十万的请求。</p>
+<p>3.详细原因</p>
+<p>1）不需要各种锁的性能消耗</p>
+<p>Redis的数据结构并不全是简单的Key-Value，还有list，hash等复杂的结构，这些结构有可能会进行很细粒度的操作，比如在很长的列表后面添加一个元素，在hash当中添加或者删除</p>
+<p>一个对象。这些操作可能就需要加非常多的锁，导致的结果是同步开销大大增加。</p>
+<p>总之，在单线程的情况下，就不用去考虑各种锁的问题，不存在加锁释放锁操作，没有因为可能出现死锁而导致的性能消耗。</p>
+<p>2）单线程多进程集群方案</p>
+<p>单线程的威力实际上非常强大，每核心效率也非常高，多线程自然是可以比单线程有更高的性能上限，但是在今天的计算环境中，即使是单机多线程的上限也往往不能满足需要了，需要进一步摸索的是多服务器集群化的方案，这些方案中多线程的技术照样是用不上的。</p>
+<p>所以单线程、多进程的集群不失为一个时髦的解决方案。</p>
+<p>3）CPU消耗</p>
+<p>采用单线程，避免了不必要的上下文切换和竞争条件，也不存在多进程或者多线程导致的切换而消耗 CPU。</p>
+<p>但是如果CPU成为Redis瓶颈，或者不想让服务器其他CUP核闲置，那怎么办？</p>
+<p>可以考虑多起几个Redis进程，Redis是key-value数据库，不是关系数据库，数据之间没有约束。只要客户端分清哪些key放在哪个Redis进程上就可以了。</p>
+<p>Redis单线程的优劣势</p>
+<p>单进程单线程优势</p>
+<p>代码更清晰，处理逻辑更简单不用去考虑各种锁的问题，不存在加锁释放锁操作，没有因为可能出现死锁而导致的性能消耗不存在多进程或者多线程导致的切换而消耗CPU。</p>
+<p>单进程单线程弊端</p>
+<p>无法发挥多核CPU性能，不过可以通过在单机开多个Redis实例来完善。</p>
+<p>IO多路复用技术</p>
+<p>redis 采用网络IO多路复用技术来保证在多连接的时候， 系统的高吞吐量。</p>
+<p>多路-指的是多个socket连接，复用-指的是复用一个线程。多路复用主要有三种技术：select，poll，epoll。epoll是最新的也是目前最好的多路复用技术。</p>
+<p>这里“多路”指的是多个网络连接，“复用”指的是复用同一个线程。采用多路 I/O 复用技术可以让单个线程高效的处理多个连接请求（尽量减少网络IO的时间消耗），且Redis在内存中操作数据的速度非常快（内存内的操作不会成为这里的性能瓶颈），主要以上两点造就了Redis具有很高的吞吐量。</p>
+<p><img src="http://upload-images.jianshu.io/upload_images/11633898-124783c8f3f39ead?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>Redis高并发快总结<br><img src="https://upload-images.jianshu.io/upload_images/11633898-2b328dfd60dc87d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<ol>
+<li><p>Redis是纯内存数据库，一般都是简单的存取操作，线程占用的时间很多，时间的花费主要集中在IO上，所以读取速度快。</p>
+</li>
+<li><p>再说一下IO，Redis使用的是非阻塞IO，IO多路复用，使用了单线程来轮询描述符，将数据库的开、关、读、写都转换成了事件，减少了线程切换时上下文的切换和竞争。</p>
+</li>
+<li><p>Redis采用了单线程的模型，保证了每个操作的原子性，也减少了线程的上下文切换和竞争。</p>
+</li>
+<li><p>另外，数据结构也帮了不少忙，Redis全程使用hash结构，读取速度快，还有一些特殊的数据结构，对数据存储进行了优化，如压缩表，对短数据进行压缩存储，再如，跳表，使用有序的数据结构加快读取的速度。</p>
+</li>
+<li><p>还有一点，Redis采用自己实现的事件分离器，效率比较高，内部采用非阻塞的执行方式，吞吐能力比较大。</p>
+</li>
+</ol>
+<p>三、Redis缓存和MySQL数据一致性方案详解</p>
+<p>需求起因</p>
+<p>在高并发的业务场景下，数据库大多数情况都是用户并发访问最薄弱的环节。所以，就需要使用redis做一个缓冲操作，让请求先访问到redis，而不是直接访问MySQL等数据库。<br><img src="http://upload-images.jianshu.io/upload_images/11633898-cd66afdf5dae5ca4?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>这个业务场景，主要是解决读数据从Redis缓存，一般都是按照下图的流程来进行业务操作。</p>
+<p><img src="http://upload-images.jianshu.io/upload_images/11633898-c67dc67645c1f394?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="image"></p>
+<p>读取缓存步骤一般没有什么问题，但是一旦涉及到数据更新：数据库和缓存更新，就容易出现缓存(Redis)和数据库（MySQL）间的数据一致性问题。</p>
+<p>不管是先写MySQL数据库，再删除Redis缓存；还是先删除缓存，再写库，都有可能出现数据不一致的情况。举一个例子：</p>
+<p>1.如果删除了缓存Redis，还没有来得及写库MySQL，另一个线程就来读取，发现缓存为空，则去数据库中读取数据写入缓存，此时缓存中为脏数据。</p>
+<p>2.如果先写了库，在删除缓存前，写库的线程宕机了，没有删除掉缓存，则也会出现数据不一致情况。</p>
+<p>因为写和读是并发的，没法保证顺序,就会出现缓存和数据库的数据不一致的问题。如何解决？这里给出两个解决方案，先易后难，结合业务和技术代价选择使用。</p>
+<p>缓存和数据库一致性解决方案</p>
+<p>1.第一种方案：采用延时双删策略</p>
+<p>在写库前后都进行redis.del(key)操作，并且设定合理的超时时间。 伪代码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public void write(String key,Object data)&#123;</span><br><span class="line"> redis.delKey(key);</span><br><span class="line"> db.updateData(data);</span><br><span class="line"> Thread.sleep(500);</span><br><span class="line"> redis.delKey(key);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure></p>
+<p>具体的步骤就是： 先删除缓存；再写数据库；休眠500毫秒；再次删除缓存。</p>
+<p>那么，这个500毫秒怎么确定的，具体该休眠多久呢？</p>
+<p>需要评估自己的项目的读数据业务逻辑的耗时。这么做的目的，就是确保读请求结束，写请求可以删除读请求造成的缓存脏数据。</p>
+<p>当然这种策略还要考虑redis和数据库主从同步的耗时。最后的的写数据的休眠时间：则在读数据业务逻辑的耗时基础上，加几百ms即可。比如：休眠1秒。</p>
+<p>设置缓存过期时间</p>
+<p>从理论上来说，给缓存设置过期时间，是保证最终一致性的解决方案。所有的写操作以数据库为准，只要到达缓存过期时间，则后面的读请求自然会从数据库中读取新值然后回填缓存。</p>
+<p>该方案的弊端</p>
+<p>结合双删策略+缓存超时设置，这样最差的情况就是在超时时间内数据存在不一致，而且又增加了写请求的耗时。</p>
+<p>2、第二种方案：异步更新缓存(基于订阅binlog的同步机制)</p>
+<p>技术整体思路：</p>
+<p>MySQL binlog增量订阅消费+消息队列+增量数据更新到redis 读Redis：热数据基本都在Redis写MySQL:增删改都是操作MySQL更新Redis数据：MySQ的数据操作binlog，来更新到Redis。</p>
+<p>Redis更新</p>
+<p>1）数据操作主要分为两大块</p>
+<p>一个是全量(将全部数据一次写入到redis)一个是增量（实时更新） 这里说的是增量,指的是mysql的update、insert、delate变更数据。</p>
+<p>2）读取binlog后分析 ，利用消息队列,推送更新各台的redis缓存数据。</p>
+<p>这样一旦MySQL中产生了新的写入、更新、删除等操作，就可以把binlog相关的消息推送至Redis，Redis再根据binlog中的记录，对Redis进行更新。</p>
+<p>其实这种机制，很类似MySQL的主从备份机制，因为MySQL的主备也是通过binlog来实现的数据一致性。</p>
+<p>这里可以结合使用canal(阿里的一款开源框架)，通过该框架可以对MySQL的binlog进行订阅，而canal正是模仿了mysql的slave数据库的备份请求，使得Redis的数据更新达到了相同的效果。</p>
+<p>当然，这里的消息推送工具你也可以采用别的第三方：kafka、rabbitMQ等来实现推送更新Redis。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/blog/tags/数据库/" rel="tag"># 数据库</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/blog/2019/05/06/用flask完成mongo的增删改查/" rel="next" title="用flask完成mongo的增删改查">
+                <i class="fa fa-chevron-left"></i> 用flask完成mongo的增删改查
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/blog/2019/05/06/深度剖析Go语言数据结构/" rel="prev" title="深度剖析Go语言数据结构">
+                深度剖析Go语言数据结构 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">郑小飞</p>
+              <div class="site-description motion-element" itemprop="description"></div>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/blog/archives/">
+                
+                    <span class="site-state-item-count">62</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">13</span>
+                    <span class="site-state-item-name">标签</span>
+                  
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+
+      
+
+    </div>
+  </aside>
+  
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">郑小飞</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.1.1</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/blog/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/blog/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/blog/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/blog/js/utils.js?v=7.1.1"></script>
+
+  <script src="/blog/js/motion.js?v=7.1.1"></script>
+
+
+
+  
+  
+
+
+  <script src="/blog/js/affix.js?v=7.1.1"></script>
+
+  <script src="/blog/js/schemes/pisces.js?v=7.1.1"></script>
+
+
+
+
+  
+  <script src="/blog/js/scrollspy.js?v=7.1.1"></script>
+<script src="/blog/js/post-details.js?v=7.1.1"></script>
+
+
+
+  
+
+
+  <script src="/blog/js/next-boot.js?v=7.1.1"></script>
+
+
+  
+
+  
+
+  
+
+  
+
+
+  
+
+
+  
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
